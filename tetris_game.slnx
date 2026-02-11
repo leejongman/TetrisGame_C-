@@ -1,0 +1,8 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/솔루션 항목/" />
+  <Project Path="tetris_game/tetris_game.vcxproj" Id="f7f96a71-caa9-4714-a785-7915cbc79895" />
+</Solution>

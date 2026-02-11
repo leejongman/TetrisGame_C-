@@ -1,0 +1,13 @@
+@"
+.vs/
+x64/
+Debug/
+Release/
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.log
+*.tlog
+*.ipch
+"@ | Out-File -Encoding utf8 .gitignore
