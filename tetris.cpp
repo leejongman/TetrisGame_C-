@@ -226,6 +226,7 @@ static void create_d2d_resources(HWND hwnd) {
     render_target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DeepSkyBlue), &brush_label_level);   // "Score:", "Level:", "Lines:" 같은 레이블
     render_target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkBlue), &brush_label_lines);   // "Score:", "Level:", "Lines:" 같은 레이블
     render_target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::RoyalBlue), &brush_value);  // 숫자 값
+    render_target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Gray), &brush_label); // 추가된 부분
     /* Create DirectWrite factory and text format if needed */
     if (!dwrite_factory) {
         DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&dwrite_factory));
@@ -257,6 +258,16 @@ static void discard_d2d_resources(void) {
     brush_border = NULL;
     safe_release((IUnknown*)brush_bg);
     brush_bg = NULL;
+    safe_release((IUnknown*)brush_label);
+    brush_label = NULL;
+    safe_release((IUnknown*)brush_label_score);
+    brush_label_score = NULL;
+    safe_release((IUnknown*)brush_label_level);
+    brush_label_level = NULL;
+    safe_release((IUnknown*)brush_label_lines);
+    brush_label_lines = NULL;
+    safe_release((IUnknown*)brush_value);
+    brush_value = NULL;
     safe_release((IUnknown*)render_target);
     render_target = NULL;
 
@@ -268,11 +279,6 @@ static void discard_d2d_resources(void) {
 
     safe_release((IUnknown*)d2d_factory);
     d2d_factory = NULL;
-
-    safe_release((IUnknown*)brush_label);
-    brush_label = NULL;
-    safe_release((IUnknown*)brush_value);
-    brush_value = NULL;
 }
 
 /* draw helper: fill cell at board coords (bx,by) with brush id */
