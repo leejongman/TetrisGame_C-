@@ -130,7 +130,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\tetris.c" />
-    <ClCompile Include="..\tetris.cpp" />
+    <ClCompile Include="..\tetris_game.cpp" />
+    <ClCompile Include="..\tetris_globals.cpp" />
+    <ClCompile Include="..\tetris_graphics.cpp" />
+    <ClCompile Include="..\tetris_main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\tetris.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
