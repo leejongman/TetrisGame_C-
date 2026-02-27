@@ -25,6 +25,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
     case WM_TIMER:
         if (wparam == 1 && !game_over) {
             game_tick(hwnd);
+            animation_frame++;
         }
         return 0;
     case WM_KEYDOWN:

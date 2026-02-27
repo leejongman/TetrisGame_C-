@@ -29,6 +29,7 @@ extern int cur_x, cur_y;
 extern int score, level, lines_total;
 extern int next_piece, hold_piece, hold_used;
 extern int speed_ms, game_over;
+extern int animation_frame;
 
 /* D2D objects */
 extern ID2D1Factory* d2d_factory;

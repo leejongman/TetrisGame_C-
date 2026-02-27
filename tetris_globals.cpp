@@ -12,6 +12,7 @@ int hold_piece = -1;
 int hold_used = 0;
 int speed_ms = 600;
 int game_over = 0;
+int animation_frame = 0;
 
 /* Direct2D objects */
 ID2D1Factory* d2d_factory = NULL;
@@ -41,7 +42,7 @@ Tetromino pieces[7] = {
     /* I */
     { { 0x00F0, 0, 0, 0 }, 1 },
     /* O */
-    { { 0x0063, 0, 0, 0 }, 2 },
+    { { 0x0066, 0, 0, 0 }, 2 },
     /* T */
     { { 0x0072, 0, 0, 0 }, 3 },
     /* S */
