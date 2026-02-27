@@ -4,6 +4,70 @@
 
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "dwrite")
+#pragma comment(lib, "windowscodecs")
+
+ID2D1Bitmap* load_image_from_file(ID2D1RenderTarget* rt, const wchar_t* filename) {
+    if (!rt) return NULL;
+
+    IWICImagingFactory* wic_factory = NULL;
+    IWICBitmapDecoder* decoder = NULL;
+    IWICBitmapFrameDecode* frame = NULL;
+    IWICFormatConverter* converter = NULL;
+    ID2D1Bitmap* bitmap = NULL;
+
+    /* Initialize COM */
+    CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
+    HRESULT hr = CoCreateInstance(
+        CLSID_WICImagingFactory,
+        NULL,
+        CLSCTX_INPROC_SERVER,
+        IID_IWICImagingFactory,
+        (LPVOID*)&wic_factory
+    );
+
+    if (SUCCEEDED(hr) && wic_factory) {
+        hr = wic_factory->CreateDecoderFromFilename(
+            filename,
+            NULL,
+            GENERIC_READ,
+            WICDecodeMetadataCacheOnLoad,
+            &decoder
+        );
+    }
+
+    if (SUCCEEDED(hr) && decoder) {
+        hr = decoder->GetFrame(0, &frame);
+    }
+
+    if (SUCCEEDED(hr) && frame) {
+        hr = wic_factory->CreateFormatConverter(&converter);
+    }
+
+    if (SUCCEEDED(hr) && converter) {
+        hr = converter->Initialize(
+            frame,
+            GUID_WICPixelFormat32bppPBGRA,
+            WICBitmapDitherTypeNone,
+            NULL,
+            0.0f,
+            WICBitmapPaletteTypeMedianCut
+        );
+    }
+
+    if (SUCCEEDED(hr)) {
+        hr = rt->CreateBitmapFromWicBitmap(converter, NULL, &bitmap);
+    }
+
+    if (converter) converter->Release();
+    if (frame) frame->Release();
+    if (decoder) decoder->Release();
+    if (wic_factory) wic_factory->Release();
+
+    CoUninitialize();
+
+    return bitmap;
+}
 
 void create_d2d_resources(HWND hwnd) {
     if (render_target) return;
@@ -17,6 +81,20 @@ void create_d2d_resources(HWND hwnd) {
         D2D1::RenderTargetProperties(),
         D2D1::HwndRenderTargetProperties(hwnd, size),
         &render_target);
+
+    /* Load background image from img folder */
+    if (render_target && !background_bitmap) {
+        /* Try loading from current directory first (copy of img folder in output dir) */
+        background_bitmap = load_image_from_file(render_target, L"img/TOP_img.png");
+
+        /* If not found, try relative paths */
+        if (!background_bitmap) {
+            background_bitmap = load_image_from_file(render_target, L"../img/TOP_img.png");
+        }
+        if (!background_bitmap) {
+            background_bitmap = load_image_from_file(render_target, L"../../img/TOP_img.png");
+        }
+    }
 
     /* brushes: map piece ids to colors */
     render_target->CreateSolidColorBrush(D2D1::ColorF(0.2f, 0.8f, 0.9f), &brushes[1]);
@@ -74,6 +152,8 @@ void discard_d2d_resources(void) {
     brush_label_lines = NULL;
     safe_release((IUnknown*)brush_value);
     brush_value = NULL;
+    safe_release((IUnknown*)background_bitmap);
+    background_bitmap = NULL;
     safe_release((IUnknown*)render_target);
     render_target = NULL;
 
@@ -133,10 +213,75 @@ void on_paint(HWND hwnd) {
     create_d2d_resources(hwnd);
     if (!render_target) return;
 
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    int window_width = rc.right - rc.left;
+
     render_target->BeginDraw();
     render_target->Clear(D2D1::ColorF(0.08f, 0.08f, 0.08f));
 
-    /* Draw modern gradient background for game board */
+    /* Draw custom title bar background */
+    D2D1_RECT_F titlebar = D2D1::RectF(0, 0, (float)window_width, 50);
+    ID2D1SolidColorBrush* titlebar_bg = NULL;
+    render_target->CreateSolidColorBrush(D2D1::ColorF(0.02f, 0.08f, 0.12f), &titlebar_bg);
+    render_target->FillRectangle(&titlebar, titlebar_bg);
+    if (titlebar_bg) titlebar_bg->Release();
+
+    /* Draw titlebar bottom border - cyan accent */
+    ID2D1SolidColorBrush* titlebar_accent = NULL;
+    render_target->CreateSolidColorBrush(D2D1::ColorF(0.2f, 0.8f, 0.9f, 0.8f), &titlebar_accent);
+    D2D1_RECT_F titlebar_border_line = D2D1::RectF(0, 48, (float)window_width, 50);
+    render_target->FillRectangle(&titlebar_border_line, titlebar_accent);
+    if (titlebar_accent) titlebar_accent->Release();
+
+    /* Draw close button (X) at top right - dynamically positioned */
+    float close_btn_right = window_width - 15;
+    float close_btn_left = close_btn_right - 25;
+    D2D1_RECT_F close_btn = D2D1::RectF(close_btn_left, 10, close_btn_right, 35);
+    ID2D1SolidColorBrush* close_btn_brush = NULL;
+    render_target->CreateSolidColorBrush(D2D1::ColorF(0.15f, 0.15f, 0.2f), &close_btn_brush);
+    render_target->FillRectangle(&close_btn, close_btn_brush);
+
+    ID2D1SolidColorBrush* close_btn_border = NULL;
+    render_target->CreateSolidColorBrush(D2D1::ColorF(0.8f, 0.3f, 0.3f, 0.7f), &close_btn_border);
+    render_target->DrawRectangle(&close_btn, close_btn_border, 1.5f);
+
+    /* Draw X on close button */
+    if (close_btn_brush && close_btn_border) {
+        D2D1_POINT_2F p1 = D2D1::Point2F(close_btn_left + 5, 15);
+        D2D1_POINT_2F p2 = D2D1::Point2F(close_btn_right - 5, 30);
+        render_target->DrawLine(p1, p2, close_btn_border, 2.0f);
+
+        p1 = D2D1::Point2F(close_btn_right - 5, 15);
+        p2 = D2D1::Point2F(close_btn_left + 5, 30);
+        render_target->DrawLine(p1, p2, close_btn_border, 2.0f);
+    }
+
+    if (close_btn_brush) close_btn_brush->Release();
+    if (close_btn_border) close_btn_border->Release();
+
+    /* Draw logo image at title bar - left side */
+    if (background_bitmap) {
+        D2D1_SIZE_F logo_size = background_bitmap->GetSize();
+        float logo_height = 35.0f;
+        float logo_width = (logo_height / logo_size.height) * logo_size.width;
+
+        D2D1_RECT_F logo_rect = D2D1::RectF(
+            10.0f,
+            7.0f,
+            10.0f + logo_width,
+            7.0f + logo_height
+        );
+        render_target->DrawBitmap(background_bitmap, logo_rect, 1.0f);
+    } else {
+        /* Fallback text if image not loaded */
+        if (text_format && brush_label) {
+            render_target->DrawTextW(L"TETRIS", 6, text_format, 
+                D2D1::RectF(10.0f, 12.0f, 150.0f, 40.0f), brush_label);
+        }
+    }
+
+    /* Draw game board background with gradient */
     int board_width = WIDTH * (cell_size + cell_gap) + cell_gap;
     int board_height = HEIGHT * (cell_size + cell_gap) + cell_gap;
     D2D1_RECT_F board_bg = D2D1::RectF(
@@ -146,7 +291,7 @@ void on_paint(HWND hwnd) {
         (float)(board_top + board_height + 4)
     );
 
-    /* Modern gradient effect - strong depth for 3D effect */
+    /* Draw gradient background on board */
     float pulse = 0.04f * sinf((animation_frame % 60) * 3.14159f / 30.0f);
 
     /* Create enhanced gradient effect with better depth */
@@ -226,6 +371,9 @@ void on_paint(HWND hwnd) {
     FLOAT sx = (FLOAT)side_panel_left_offset;
     FLOAT sy = (FLOAT)board_top;
 
+    /* Calculate panel height to match game board */
+    FLOAT panel_bottom = sy + (HEIGHT * (cell_size + cell_gap) + cell_gap) + 4;
+
     /* Draw animated background for side panel */
     float hue_shift = (animation_frame % 120) / 120.0f;
     float panel_brightness = 0.3f + 0.1f * sinf(hue_shift * 3.14159f * 2.0f);
@@ -235,38 +383,37 @@ void on_paint(HWND hwnd) {
         &panel_bg_brush
     );
 
-    /* Panel background covering all side info */
-    D2D1_RECT_F panel_rect = D2D1::RectF(sx - 10, sy - 40, sx + 150, sy + 260);
+    /* Panel background covering all side info - wider and shorter */
+    D2D1_RECT_F panel_rect = D2D1::RectF(sx - 10, sy - 4, sx + 170, sy + 360);
     render_target->FillRectangle(&panel_rect, panel_bg_brush);
 
     /* Panel top highlight for 3D bevel */
     ID2D1SolidColorBrush* panel_highlight = NULL;
     render_target->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.12f), &panel_highlight);
-    D2D1_RECT_F panel_top_highlight = D2D1::RectF(sx - 10, sy - 40, sx + 150, sy - 35);
+    D2D1_RECT_F panel_top_highlight = D2D1::RectF(sx - 10, sy - 4, sx + 170, sy + 1);
     render_target->FillRectangle(&panel_top_highlight, panel_highlight);
     if (panel_highlight) panel_highlight->Release();
 
     /* Panel left highlight */
     ID2D1SolidColorBrush* panel_left_highlight = NULL;
     render_target->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.10f), &panel_left_highlight);
-    D2D1_RECT_F panel_left_highlight_rect = D2D1::RectF(sx - 10, sy - 40, sx - 6, sy + 260);
+    D2D1_RECT_F panel_left_highlight_rect = D2D1::RectF(sx - 10, sy - 4, sx - 6, sy + 360);
     render_target->FillRectangle(&panel_left_highlight_rect, panel_left_highlight);
     if (panel_left_highlight) panel_left_highlight->Release();
 
     /* Panel bottom shadow */
     ID2D1SolidColorBrush* panel_shadow = NULL;
     render_target->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.3f), &panel_shadow);
-    D2D1_RECT_F panel_bottom_shadow = D2D1::RectF(sx - 10, sy + 255, sx + 150, sy + 260);
+    D2D1_RECT_F panel_bottom_shadow = D2D1::RectF(sx - 10, sy + 356, sx + 170, sy + 360);
     render_target->FillRectangle(&panel_bottom_shadow, panel_shadow);
     if (panel_shadow) panel_shadow->Release();
 
     /* Panel right shadow */
     ID2D1SolidColorBrush* panel_right_shadow = NULL;
     render_target->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.25f), &panel_right_shadow);
-    D2D1_RECT_F panel_right_shadow_rect = D2D1::RectF(sx + 146, sy - 40, sx + 150, sy + 260);
+    D2D1_RECT_F panel_right_shadow_rect = D2D1::RectF(sx + 166, sy - 4, sx + 170, sy + 360);
     render_target->FillRectangle(&panel_right_shadow_rect, panel_right_shadow);
     if (panel_right_shadow) panel_right_shadow->Release();
-
     /* Draw border with gradient effect */
     ID2D1SolidColorBrush* panel_border = NULL;
     render_target->CreateSolidColorBrush(D2D1::ColorF(0.35f, 0.35f, 0.35f), &panel_border);
@@ -294,7 +441,7 @@ void on_paint(HWND hwnd) {
 
     /* draw side panel: Hold */
     FLOAT hx = sx;
-    FLOAT hy = sy + 160;
+    FLOAT hy = sy + 110;
     if (text_format)
         render_target->DrawTextW(L"Hold:", 5, text_format, D2D1::RectF(hx, hy - 28, hx + 200, hy), brush_border);
     if (hold_piece >= 0) {
@@ -316,18 +463,18 @@ void on_paint(HWND hwnd) {
     wchar_t hud[128];
     swprintf(hud, 128, L"%d", score);
     if (text_format) {
-        render_target->DrawTextW(L"Score:", 6, text_format, D2D1::RectF(sx, hy + 120, sx + 360, hy + 140), brush_label_score);
-        render_target->DrawTextW(hud, (UINT32)wcslen(hud), text_format, D2D1::RectF(sx + 80, hy + 120, sx + 300, hy + 160), brush_label_score);
+        render_target->DrawTextW(L"Score:", 6, text_format, D2D1::RectF(sx, hy + 50, sx + 300, hy + 65), brush_label_score);
+        render_target->DrawTextW(hud, (UINT32)wcslen(hud), text_format, D2D1::RectF(sx + 60, hy + 50, sx + 260, hy + 80), brush_label_score);
     }
     swprintf(hud, 128, L"%d", level);
     if (text_format) {
-        render_target->DrawTextW(L"Level:", 6, text_format, D2D1::RectF(sx, hy + 140, sx + 360, hy + 160), brush_label_level);
-        render_target->DrawTextW(hud, (UINT32)wcslen(hud), text_format, D2D1::RectF(sx + 80, hy + 140, sx + 300, hy + 180), brush_label_level);
+        render_target->DrawTextW(L"Level:", 6, text_format, D2D1::RectF(sx, hy + 70, sx + 300, hy + 85), brush_label_level);
+        render_target->DrawTextW(hud, (UINT32)wcslen(hud), text_format, D2D1::RectF(sx + 60, hy + 70, sx + 260, hy + 100), brush_label_level);
     }
     swprintf(hud, 128, L"%d", lines_total);
     if (text_format) {
-        render_target->DrawTextW(L"Lines:", 6, text_format, D2D1::RectF(sx, hy + 160, sx + 360, hy + 180), brush_label_lines);
-        render_target->DrawTextW(hud, (UINT32)wcslen(hud), text_format, D2D1::RectF(sx + 80, hy + 160, sx + 300, hy + 200), brush_label_lines);
+        render_target->DrawTextW(L"Lines:", 6, text_format, D2D1::RectF(sx, hy + 90, sx + 300, hy + 105), brush_label_lines);
+        render_target->DrawTextW(hud, (UINT32)wcslen(hud), text_format, D2D1::RectF(sx + 60, hy + 90, sx + 260, hy + 120), brush_label_lines);
     }
 
     HRESULT hr = render_target->EndDraw();

@@ -1,6 +1,10 @@
 #include "tetris.h"
 #include <time.h>
 #include <stdlib.h>
+#include <windowsx.h>
+
+#define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
+#define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 
 void reset_timer(HWND hwnd) {
     KillTimer(hwnd, 1);
@@ -22,6 +26,30 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
         }
         InvalidateRect(hwnd, NULL, FALSE);
         return 0;
+    case WM_LBUTTONDOWN: {
+        /* Allow dragging from custom titlebar */
+        int x = GET_X_LPARAM(lparam);
+        int y = GET_Y_LPARAM(lparam);
+
+        /* Get window width for dynamic close button positioning */
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        int window_width = rc.right - rc.left;
+        int close_btn_left = window_width - 40;
+        int close_btn_right = window_width - 15;
+
+        /* Check if close button (X) is clicked - top right corner */
+        if (y >= 10 && y <= 35 && x >= close_btn_left && x <= close_btn_right) {
+            PostQuitMessage(0);
+            return 0;
+        }
+
+        if (y < 50) {  /* Titlebar height */
+            ReleaseCapture();
+            SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, lparam);
+        }
+        return 0;
+    }
     case WM_TIMER:
         if (wparam == 1 && !game_over) {
             game_tick(hwnd);
@@ -139,17 +167,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HWND hwnd = CreateWindowEx(
         0,
         CLASS_NAME,
-        L"Tetris - Direct2D",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 640, 720,
+        L"",
+        WS_POPUP | WS_VISIBLE | WS_MINIMIZEBOX,
+        CW_USEDEFAULT, CW_USEDEFAULT, 650, 1050,
         NULL,
         NULL,
         hInstance,
         NULL);
 
     if (!hwnd) return 0;
+
+    /* Set window style to remove all frame/border */
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE | WS_MINIMIZEBOX);
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
+
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
+    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {

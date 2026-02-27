@@ -17,6 +17,7 @@ int animation_frame = 0;
 /* Direct2D objects */
 ID2D1Factory* d2d_factory = NULL;
 ID2D1HwndRenderTarget* render_target = NULL;
+ID2D1Bitmap* background_bitmap = NULL;
 ID2D1SolidColorBrush* brushes[8] = { NULL };
 ID2D1SolidColorBrush* brush_border = NULL;
 ID2D1SolidColorBrush* brush_bg = NULL;
@@ -31,11 +32,11 @@ IDWriteFactory* dwrite_factory = NULL;
 IDWriteTextFormat* text_format = NULL;
 
 /* Layout constants */
-const int cell_size = 28;
-const int cell_gap = 2;
-const int board_left = 16;
-const int board_top = 48;
-const int side_panel_left_offset = WIDTH * (cell_size + cell_gap) + 48;
+const int cell_size = 28;  /* reduced from 42 */
+const int cell_gap = 2;    /* reduced from 3 */
+const int board_left = 24;  /* 16 * 1.5 */
+const int board_top = 72;   /* 48 * 1.5 */
+const int side_panel_left_offset = WIDTH * (cell_size + cell_gap) + 72;  /* Adjusted for larger board */
 
 /* Tetromino pieces */
 Tetromino pieces[7] = {

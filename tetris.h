@@ -4,10 +4,11 @@
 #include <windows.h>
 #include <d2d1.h>
 #include <dwrite.h>
+#include <wincodec.h>
 #include <stdint.h>
 
 #define WIDTH 10
-#define HEIGHT 20
+#define HEIGHT 30
 
 /* Tetromino structure */
 typedef struct {
@@ -34,6 +35,7 @@ extern int animation_frame;
 /* D2D objects */
 extern ID2D1Factory* d2d_factory;
 extern ID2D1HwndRenderTarget* render_target;
+extern ID2D1Bitmap* background_bitmap;
 extern ID2D1SolidColorBrush* brushes[8];
 extern ID2D1SolidColorBrush* brush_border;
 extern ID2D1SolidColorBrush* brush_bg;
@@ -63,6 +65,7 @@ void game_tick(HWND hwnd);
 void create_d2d_resources(HWND hwnd);
 void discard_d2d_resources(void);
 void on_paint(HWND hwnd);
+ID2D1Bitmap* load_image_from_file(ID2D1RenderTarget* rt, const wchar_t* filename);
 
 /* Utility functions */
 void safe_release(IUnknown* p);
